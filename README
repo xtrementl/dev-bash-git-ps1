@@ -1,0 +1,17 @@
+###################################################################################
+# Developer's Bash-GIT PS1 Integration
+###################################################################################
+# Provides simple information for the bash terminal, using git-completion script
+#
+# Erik Johnson (xtrementl)
+# 07-29-2009
+#
+# -[ Requirements ]-
+#   bash shell (obviously)
+#   bash-completion
+#   git-completion script (available from sources http://git.kernel.org/ )
+#
+# -[ Installation ]-
+#   Add line to relevant .bashrc:
+#       source "/path/to/bash_git_ps1.sh"
+###################################################################################
