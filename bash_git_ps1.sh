@@ -100,4 +100,4 @@ GREEN="\e[01;32m"
 YELLOW="\e[01;33m"
 
 # integrate git awareness into bash terminal PS1
-PS1="[$GRAY\h:$RESET $CYAN\W$RESET]$YELLOW\$(__git_ps1 ' %s')$RESET\$(__git_print_counts) \$ "
+PS1="\[[$GRAY\h:$RESET $CYAN\W$RESET]$YELLOW\]\$(__git_ps1 ' %s')\[$RESET\]\$(__git_print_counts) \$ "
