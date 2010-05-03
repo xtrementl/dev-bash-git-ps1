@@ -49,20 +49,26 @@ function __git_branch_name {
 # gets number of commits that are on the master but not on non-master branch
 function __git_trunk_unmerged_count {
     __git_branch_name
-    if [ "$?" -ne 0 -o "$BRANCH" = "master" ]; then return; fi
+    if [ "$?" -ne 0 -o "$BRANCH" = "master" ]; then
+        GIT_UM_COUNT=0
+        return 0
+    fi
 
     # print formatted commit count
     __git_branch_name 'parent'
-    GIT_UM_COUNT=`git log HEAD..$BRANCH --format=oneline 2> /dev/null | wc -l` || return
+    GIT_UM_COUNT=$(git log HEAD..$BRANCH --format=oneline 2> /dev/null | wc -l) || 0
 }
 
 # gets number of commits that are on the branch but not on master (origin if on master branch)
 function __git_new_on_branch_count {
     __git_branch_name 'parent'
-    if [ "$?" -ne 0 ]; then return; fi
+    if [ "$?" -ne 0 ]; then
+        GIT_CM_COUNT=0
+        return 0
+    fi
 
     # get commit count
-    GIT_CM_COUNT=`git log $BRANCH..HEAD --format=oneline 2> /dev/null | wc -l` || return
+    GIT_CM_COUNT=$(git log $BRANCH..HEAD --format=oneline 2> /dev/null | wc -l) || 0
 }
 
 # build combined (+/-) counts for related commits
