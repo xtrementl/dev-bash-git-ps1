@@ -18,6 +18,17 @@
 #       source "/path/to/bash_git_ps1.sh"
 ###################################################################################
 
+# sets the parent branch reference. this is useful if developing off of master
+# branch for a typical development cycle. Optional parameter will be used if provided,
+# otherwise, uses current branch
+function __set_branch_parent {
+    if [ -z "$1" ]; then
+        export GIT_BRANCH_PARENT="$(__git_ps1 '%s')" # use current branch as parent ref
+    else
+        export $GIT_BRANCH_PARENT="$1" || ""
+    fi
+}
+
 # returns current / parent branch name as $BRANCH
 # optional parameter of 'parent' will provide parent
 function __git_branch_name {
@@ -26,18 +37,22 @@ function __git_branch_name {
 
     # return parent branch name
     if [ "$1" = "parent" ]; then
-        local refs="$(__git_refs)"
+        if [ -n "$GIT_BRANCH_PARENT" ]; then
+            BRANCH=$GIT_BRANCH_PARENT
+        else
+            local refs="$(__git_refs)"
 
-        if [ "$BRANCH" = "master" ]; then
-            if [[ "$refs" =~ "git-svn" ]]; then # git-svn repo
-                BRANCH='git-svn'
-            elif [[ "$refs" =~ "origin" ]]; then # remote clone
-                BRANCH='origin'
-            else
-                BRANCH='HEAD' # same repo
+            if [ "$BRANCH" = "master" ]; then
+                if [[ "$refs" =~ "git-svn" ]]; then # git-svn repo
+                    BRANCH='git-svn'
+                elif [[ "$refs" =~ "origin" ]]; then # remote clone
+                    BRANCH='origin'
+                else
+                    BRANCH='HEAD' # same repo
+                fi
+            else # on a branch
+                BRANCH='master'
             fi
-        else # on a branch
-            BRANCH='master'
         fi
     fi
 
