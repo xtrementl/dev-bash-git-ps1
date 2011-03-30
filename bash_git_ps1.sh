@@ -113,14 +113,19 @@ function __git_counts {
     fi
 }
 
+LIGHT_RED="\033[1;31m"
+LIGHT_GREEN="\033[1;32m"
+LIGHT_GRAY="\033[0;37m"
+COLOR_NONE="\e[0m"
+
+GREY="\[\033[0;37m\]"
+CYAN="\[\033[01;36m\]"
+YELLOW="\033[0;33m"
+RESET="\[\033[0m\]"
+
 # install git integration into PS1
 function __gitify_ps1 {
-    local grey="\[\033[0;37m\]"
-    local cyan="\[\033[01;36m\]"
-    local yellow="\[\033[01;33m\]"
-    local reset="\[\033[0m\]"
-
     __git_counts
-    PS1="[$grey\h: $cyan\W$reset]$yellow\$(__git_ps1 ' %s')$reset$GIT_COUNT_STR \$ "
+    PS1="[$GREY\h: $CYAN\W$RESET]$YELLOW\$(__git_ps1 ' %s')$RESET$GIT_COUNT_STR \$ "
 }
 PROMPT_COMMAND=__gitify_ps1
