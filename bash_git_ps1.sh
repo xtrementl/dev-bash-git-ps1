@@ -115,7 +115,6 @@ function __git_counts {
 
 LIGHT_RED="\033[1;31m"
 LIGHT_GREEN="\033[1;32m"
-LIGHT_GRAY="\033[0;37m"
 COLOR_NONE="\e[0m"
 
 GREY="\[\033[0;37m\]"
@@ -123,9 +122,35 @@ CYAN="\[\033[01;36m\]"
 YELLOW="\033[0;33m"
 RESET="\[\033[0m\]"
 
+function minutes_since_last_commit {
+    now=`date +%s`
+    last_commit=`git log --pretty=format:'%at' -1`
+    seconds_since_last_commit=$((now-last_commit))
+    minutes_since_last_commit=$((seconds_since_last_commit/60))
+    echo $minutes_since_last_commit
+}
+
+git_prompt() {
+  local g="$(__gitdir)"
+  if [ -n "$g" ]; then
+    local MINUTES_SINCE_LAST_COMMIT=`minutes_since_last_commit`
+    if [ "$MINUTES_SINCE_LAST_COMMIT" -gt 30 ]; then
+        local COLOR=${LIGHT_RED}
+    elif [ "$MINUTES_SINCE_LAST_COMMIT" -gt 10 ]; then
+        local COLOR=${YELLOW}
+    else
+        local COLOR=${LIGHT_GREEN}
+    fi
+    local SINCE_LAST_COMMIT="${COLOR}$(minutes_since_last_commit)m${COLOR_NONE}"
+    # The __git_ps1 function inserts the current git branch where %s is
+    #local GIT_PROMPT=`__git_ps1 "(%s|${SINCE_LAST_COMMIT})"`
+    local GIT_PROMPT=`__git_ps1 "[${SINCE_LAST_COMMIT}]"`
+    echo ${GIT_PROMPT}
+  fi
+}
 # install git integration into PS1
 function __gitify_ps1 {
     __git_counts
-    PS1="[$GREY\h: $CYAN\W$RESET]$YELLOW\$(__git_ps1 ' %s')$RESET$GIT_COUNT_STR \$ "
+    PS1="[$GREY\h: $CYAN\W$RESET]$YELLOW\$(__git_ps1 '[%s]')$RESET$GIT_COUNT_STR$(git_prompt) → "
 }
 PROMPT_COMMAND=__gitify_ps1
