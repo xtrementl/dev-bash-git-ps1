@@ -1,156 +1,321 @@
 #!/bin/bash
 
-###################################################################################
+#-----------------------------------------------------------------------------------------------
 # Developer's Bash-GIT PS1 Integration
-###################################################################################
-# Provides simple information for the bash terminal, using git-completion script
+#-----------------------------------------------------------------------------------------------
+# Provides simple information about git repository for the bash terminal
+#
+# The PS1 will be formatted as follows:
+#
+#  Non-Git repo:
+#    [{host}: {dir}] -->
+#    $
+#
+#  Git repo:
+#    [{host}: {dir}] {branch}({diff upstream counts}){working dir syms} [{time last commit}] -->
+#    $
+#
+# NOTE:
+#  The marker ($) will be colored red/green depending on the result of last command's exit code
+#  For Git repos, the working dir symbols are:
+#   + - staged changes
+#   * - unstaged changes
+#   ^ - stashed changes
+#   % - untracked files
 #
 # Erik Johnson (xtrementl)
-# 07-29-2009
+#   Created: 07-29-2009
+#   Updated: 03-31-2011
 #
-# -[ Requirements ]-
-#   bash shell (obviously)
-#   bash-completion
-#   git-completion script (available from sources http://git.kernel.org/)
+# Special thanks to:
+#   reborg
 #
-# -[ Installation ]-
-#   Add line to relevant .bashrc:
-#       source "/path/to/bash_git_ps1.sh"
-###################################################################################
+# Installation
+#   Add the following line to your .bashrc:
+#       source ~/.bash_git_ps1.sh
+#-----------------------------------------------------------------------------------------------
 
-# sets the parent branch reference. this is useful if developing off of master
-# branch for a typical development cycle. Optional parameter will be used if provided,
-# otherwise, uses current branch
-function __set_branch_parent {
-    if [ -z "$1" ]; then
-        export GIT_BRANCH_PARENT="$(__git_ps1 '%s')" # use current branch as parent ref
+# colors
+case "$TERM" in
+    xterm*|rxvt*)
+        ESC="\033"
+        RED="\[$ESC[01;31m\]"
+        LIGHT_RED="\[$ESC[1;31m\]"
+        GREEN="\[$ESC[01;32m\]"
+        LIGHT_GREEN="\[$ESC[1;32m\]"
+        GREY="\[$ESC[0;37m\]"
+        CYAN="\[$ESC[01;36m\]"
+        YELLOW="\[$ESC[0;33m\]"
+        VIOLET="\[$ESC[0;35m\]"
+        RESET="\[$ESC[0m\]"
+    ;;
+    *)
+        ESC=""
+        RED=""
+        LIGHT_RED=""
+        GREEN=""
+        LIGHT_GREEN=""
+        GREY=""
+        CYAN=""
+        YELLOW=""
+        VIOLET=""
+        RESET=""
+    ;;
+esac
+
+# prints path to git directory
+__git_dirname() {
+    local dirname
+    if [ -d .git ]; then
+        dirname=".git"
     else
-        export $GIT_BRANCH_PARENT="$1" || ""
+        dirname="$(git rev-parse --git-dir 2>/dev/null)"
     fi
+    echo "$dirname"
 }
 
-# returns current / parent branch name as $BRANCH
-# optional parameter of 'parent' will provide parent
-function __git_branch_name {
-    BRANCH="$(__git_ps1 '%s')" # get current branch name (default)
-    if [ -z "$BRANCH" ]; then return; fi
+# gets the branching state of the repository
+# optional arg: path to git directory
+__git_branching_state() {
+    local gitdir="$1" || "$(__git_dirname)"
+    local state
 
-    # return parent branch name
-    if [ "$1" = "parent" ]; then
-        if [ -n "$GIT_BRANCH_PARENT" ]; then
-            BRANCH=$GIT_BRANCH_PARENT
-        else
-            local refs="$(__git_refs)"
-
-            if [ "$BRANCH" = "master" ]; then
-                if [[ "$refs" =~ "git-svn" ]]; then # git-svn repo
-                    BRANCH='git-svn'
-                elif [[ "$refs" =~ "origin" ]]; then # remote clone
-                    BRANCH='origin'
-                else
-                    BRANCH='HEAD' # same repo
-                fi
-            else # on a branch
-                BRANCH='master'
+    if [ -f "$gitdir/rebase-merge/interactive" ]; then
+        state="rebase-i"
+    elif [ -d "$gitdir/rebase-merge" ]; then
+        state="rebase-m"
+    else
+        if [ -d "$gitdir/rebase-apply" ]; then
+            if [ -f "$gitdir/rebase-apply/rebasing" ]; then
+                state="rebase"
+            elif [ -f "$gitdir/rebase-apply/applying" ]; then
+                state="am"
+            else
+                state="am/r"
             fi
+        elif [ -f "$gitdir/MERGE_HEAD" ]; then
+            state="merge" # merging
+        elif [ -f "$gitdir/BISECT_LOG" ]; then
+            state="bisect" # bisecting
+        fi
+    fi
+    echo "$state"
+}
+
+# prints the working directory state of the repository using symbols
+# * - modified / + - staged / ^ - stashed / % - untracked
+__git_working_dir_symbols() {
+    local symbols
+
+    # in working dir
+    if [ true = "$(git rev-parse --is-inside-work-tree 2>/dev/null)" ]; then
+        git diff --no-ext-diff --quiet --exit-code || symbols="*"
+        if git rev-parse --quiet --verify HEAD >/dev/null; then
+            git diff-index --cached --quiet HEAD -- || symbols="${symbols}+"
         fi
     fi
 
-    if [ -n "$BRANCH" ]; then
-        return 0
+    # stashed
+    git rev-parse --verify refs/stash >/dev/null 2>&1 && symbols="${symbols}^"
+
+    # untracked files
+    if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+        symbols="${symbols}%"
+    fi
+    echo "$symbols"
+}
+
+# prints current / parent branch name
+# optional arg: 'parent' -- returns a limited guess of the parent
+# optional arg: path to git directory
+__git_branch_name() {
+    # current branch name
+    local branch
+    local gitdir="$2" || "$(__git_dirname)"
+    branch="$(git symbolic-ref HEAD 2> /dev/null)" || {
+        branch="$(git describe --contains --all HEAD 2> /dev/null)" ||
+            branch="$(cut -c1-7 "$gitdir/HEAD" 2> /dev/null)..." ||
+                branch="unknown"
+
+        branch="${branch##remotes/}"
+        branch="($branch)"
+    }
+    branch="${branch##refs/heads/}"
+
+    # parent branch name
+    if [ parent = "$1" ]; then
+        if [ master = "$branch" ]; then
+            local refs="$(git for-each-ref --format="%(refname:short)")"
+            case "$refs" in
+                *git-svn*) # git-svn repo
+                    branch='git-svn' ;;
+                *origin*) # remote clone
+                    branch='origin' ;;
+                *)
+                    branch='HEAD' ;; # same repo
+            esac
+        else
+            # TODO.. would be nice to improve this to determine the actual
+            # merge base (git merge-base) and compare against that instead of
+            # always assuming master. In this way a 'topic/feature' branch
+            # would show the diff counts for its parent 'next/develop' branch
+            # rather than those plus those on the 'next/develop' branch.
+            # I don"t think we want to loop over the refs comparing ... that's
+            # fuzzy.
+            branch='master' # on a branch
+        fi
+    fi
+    echo "$branch"
+}
+
+# prints if inside git directory or bare git repository
+__git_in_gitdir() {
+    if [ true = "$(git rev-parse --is-inside-git-dir 2>/dev/null)" ]; then
+        if [ true = "$(git rev-parse --is-bare-repository 2>/dev/null)" ]; then
+            echo 'bare'
+        else
+            echo 'gitdir'
+        fi
     fi
 }
 
-# gets number of commits that are on the master but not on non-master branch
-function __git_trunk_unmerged_count {
-    __git_branch_name
-    if [ "$?" -ne 0 -o "$BRANCH" = "master" ]; then
-        GIT_UM_COUNT=0
-        return 0
-    fi
-
-    # print formatted commit count
-    __git_branch_name 'parent'
-    GIT_UM_COUNT=$(git log HEAD..$BRANCH --format=oneline 2> /dev/null | wc -l | sed -e 's/     //g') || 0
-}
-
-# gets number of commits that are on the branch but not on master (origin if on master branch)
-function __git_new_on_branch_count {
-    __git_branch_name 'parent'
-    if [ "$?" -ne 0 ]; then
-        GIT_CM_COUNT=0
-        return 0
-    fi
-
-    # get commit count
-    GIT_CM_COUNT=$(git log $BRANCH..HEAD --format=oneline 2> /dev/null | wc -l | sed -e 's/     //g') || 0
+# prints number of commits that are available on ref B but not ref A
+# arg1: reference A
+# arg2: reference B
+__git_commit_diff_count() {
+    echo "$(git rev-list $1..$2 2> /dev/null | wc -l)"
 }
 
 # build combined (+/-) counts for related commits
-function __git_counts {
-    local red="\[\033[01;31m\]"
-    local green="\[\033[01;32m\]"
-    local reset="\[\033[0m\]"
+__git_count_str() {
+    local str
+    local parent="$(__git_branch_name parent)"
+    local ahead_count=$(__git_commit_diff_count $parent HEAD)
+    local behind_count=$(__git_commit_diff_count HEAD $parent)
 
-    GIT_COUNT_STR=""
-    # get our counts
-    __git_new_on_branch_count
-    __git_trunk_unmerged_count
-
-    if [ "$GIT_CM_COUNT" -ne 0 ]; then
-        GIT_COUNT_STR="$green+$GIT_CM_COUNT"
+    if [ 0 -lt "$ahead_count" ]; then
+        str="${GREEN}+${ahead_count}${RESET}"
     fi
 
-    if [ "$GIT_UM_COUNT" -ne 0 ]; then
-        if [ -n "$GIT_COUNT_STR" ]; then
-            GIT_COUNT_STR="$GIT_COUNT_STR$reset/"
+    if [ 0 -lt "$behind_count" ]; then
+        [ -n "$str" ] && str="$str/"
+        str="${str}${RED}-${behind_count}${RESET}"
+    fi
+
+    [ -n "$str" ] && str="($str)"
+    echo "$str"
+}
+
+# get the unix timestamp for the lastest commit (seconds)
+__git_secs_since() {
+    local now="$(date +%s)" || 0
+    local last_commit="$(git log --format='%at' -1 2> /dev/null)" || 0
+    if [ 0 -lt "$now" ] && [ 0 -lt "$last_commit" ]; then
+        echo "$((now - last_commit))"
+    fi
+}
+
+# prints a relative-formatted time string from unix timestamp
+# arg: unix timestamp in seconds
+# optional arg: true to include coloring
+__git_timestr_relformat() {
+    local secs="$1"
+    local yrs="$(( $secs / 31557600 ))"
+    local div="$(( $secs % 31557600 ))"
+    local days="$(( div / 86400 ))"
+    div="$(( $secs % 86400 ))"
+    local hrs="$(( $div / 3600 ))"
+    div="$(( $secs % 3600 ))"
+    local mins="$(( $div / 60 ))"
+
+    # create the formatted time string
+    local timestr
+    [ 0 -lt "$yrs" ] && timestr="${yrs}y"
+    if [ 0 -lt "$days" ]; then
+        [ -n "$timestr" ] && timestr="$timestr,"
+        timestr="${days}d"
+    fi
+    if [ 0 -lt "$hrs" ]; then
+        [ -n "$timestr" ] && timestr="$timestr,"
+        timestr="${timestr}${hrs}h"
+    fi
+    [ -n "$timestr" ] && timestr="${timestr},"
+    timestr="${timestr}${mins}m"
+
+    # add a hint of color
+    if [ -n "$2" ]; then
+        local color
+        if [ 30 -lt "$mins" ]; then
+            color="$LIGHT_RED"
+        elif [ 10 -lt "$mins" ]; then
+            color="$YELLOW"
+        else
+            color="$LIGHT_GREEN"
         fi
-        GIT_COUNT_STR="$GIT_COUNT_STR$red-$GIT_UM_COUNT"
+        timestr="${color}${timestr}${RESET}"
     fi
-
-    if [ -n "$GIT_COUNT_STR" ]; then
-        GIT_COUNT_STR=" ($GIT_COUNT_STR$reset)"
-    fi
+    echo "$timestr"
 }
 
-LIGHT_RED="\033[1;31m"
-LIGHT_GREEN="\033[1;32m"
-COLOR_NONE="\e[0m"
-
-GREY="\[\033[0;37m\]"
-CYAN="\[\033[01;36m\]"
-YELLOW="\033[0;33m"
-RESET="\[\033[0m\]"
-
-function minutes_since_last_commit {
-    now=`date +%s`
-    last_commit=`git log --pretty=format:'%at' -1`
-    seconds_since_last_commit=$((now-last_commit))
-    minutes_since_last_commit=$((seconds_since_last_commit/60))
-    echo $minutes_since_last_commit
-}
-
-git_prompt() {
-  local g="$(__gitdir)"
-  if [ -n "$g" ]; then
-    local MINUTES_SINCE_LAST_COMMIT=`minutes_since_last_commit`
-    if [ "$MINUTES_SINCE_LAST_COMMIT" -gt 30 ]; then
-        local COLOR=${LIGHT_RED}
-    elif [ "$MINUTES_SINCE_LAST_COMMIT" -gt 10 ]; then
-        local COLOR=${YELLOW}
-    else
-        local COLOR=${LIGHT_GREEN}
-    fi
-    local SINCE_LAST_COMMIT="${COLOR}$(minutes_since_last_commit)m${COLOR_NONE}"
-    # The __git_ps1 function inserts the current git branch where %s is
-    #local GIT_PROMPT=`__git_ps1 "(%s|${SINCE_LAST_COMMIT})"`
-    local GIT_PROMPT=`__git_ps1 "[${SINCE_LAST_COMMIT}]"`
-    echo ${GIT_PROMPT}
-  fi
-}
 # install git integration into PS1
-function __gitify_ps1 {
-    __git_counts
-    PS1="[$GREY\h: $CYAN\W$RESET]$YELLOW\$(__git_ps1 '[%s]')$RESET$GIT_COUNT_STR$(git_prompt) → "
+__git_prompt() {
+    local last_exit="$?" # keep here.. so we get the last command
+
+    # setup PS1
+    local host="${GREY}\h:${RESET}"
+    local dir="${CYAN}\W${RESET}" 
+    PS1="[$host $dir]"
+
+    # when in git repository
+    local gitdir="$(__git_dirname)"
+    if [ -n "$gitdir" ]; then
+        local branch
+        local extras
+
+        local in_gitdir="$(__git_in_gitdir)"
+        case "$in_gitdir" in
+            gitdir|bare)
+                branch="~$(echo $in_gitdir | tr "[:lower:]" "[:upper:]")~"
+                extras=""
+            ;;
+            *)
+                local branch="$(__git_branch_name current ${gitdir})"
+                local br_state="$(__git_branching_state $gitdir)"
+
+                # rebasing..use merge head for branch name
+                case "$br_state" in
+                    rebase-*)
+                        # get the ref head during rebase
+                        branch="$(cat "$gitdir/rebase-merge/head-name")"
+                        branch="${branch##refs/heads/}"
+                        branch="${branch##remotes/}"
+                    ;;
+                esac
+
+                # extras (count strings, working dir symbols)
+                local countstr="$(__git_count_str)"
+                local wd_syms="${VIOLET}$(__git_working_dir_symbols)${RESET}"
+
+                # calc relative time diff of last commit
+                local secs="$(__git_secs_since)"
+                local timestr=" [$(__git_timestr_relformat $secs true)]"
+                extras="${countstr}${wd_syms}${timestr}"
+            ;;
+        esac
+        branch="${YELLOW}${branch}${RESET}"
+
+        # update PS1
+        PS1="${PS1} ${branch}${extras}"
+    fi
+
+    # setup marker that acts off of last exit code
+    local marker
+    if [ 0 -eq "$last_exit" ]; then
+        marker="$GREEN"
+    else
+        marker="$RED"
+    fi
+    marker="${marker}\$${RESET}"
+    PS1="${PS1} → \n\n${marker} "
 }
-PROMPT_COMMAND=__gitify_ps1
+PROMPT_COMMAND=__git_prompt

@@ -1,17 +1,34 @@
-###################################################################################
+#-----------------------------------------------------------------------------------------------
 # Developer's Bash-GIT PS1 Integration
-###################################################################################
-# Provides simple information for the bash terminal, using git-completion script
+#-----------------------------------------------------------------------------------------------
+# Provides simple information about git repository for the bash terminal
+#
+# The PS1 will be formatted as follows:
+#
+#  Non-Git repo:
+#    [{host}: {dir}] -->
+#    $
+#
+#  Git repo:
+#    [{host}: {dir}] {branch}({diff upstream counts}){working dir syms} [{time last commit}] -->
+#    $
+#
+# NOTE:
+#  The marker ($) will be colored red/green depending on the result of last command's exit code
+#  For Git repos, the working dir symbols are:
+#   + - staged changes
+#   * - unstaged changes
+#   ^ - stashed changes
+#   % - untracked files
 #
 # Erik Johnson (xtrementl)
-# 07-29-2009
+#   Created: 07-29-2009
+#   Updated: 03-31-2011
 #
-# -[ Requirements ]-
-#   bash shell (obviously)
-#   bash-completion
-#   git-completion script (available from sources http://git.kernel.org/ )
+# Special thanks to:
+#   reborg
 #
-# -[ Installation ]-
-#   Add line to relevant .bashrc:
-#       source "/path/to/bash_git_ps1.sh"
-###################################################################################
+# Installation
+#   Add the following line to your .bashrc:
+#       source ~/.bash_git_ps1.sh
+#-----------------------------------------------------------------------------------------------
