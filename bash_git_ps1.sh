@@ -160,7 +160,7 @@ __git_branch_name() {
             # always assuming master. In this way a 'topic/feature' branch
             # would show the diff counts for its parent 'next/develop' branch
             # rather than those plus those on the 'next/develop' branch.
-            # I don"t think we want to loop over the refs comparing ... that's
+            # I don't think we want to loop over the refs comparing ... that's
             # fuzzy.
             branch='master' # on a branch
         fi
@@ -190,8 +190,8 @@ __git_commit_diff_count() {
 __git_count_str() {
     local str
     local parent="$(__git_branch_name parent)"
-    local ahead_count=$(__git_commit_diff_count $parent HEAD)
-    local behind_count=$(__git_commit_diff_count HEAD $parent)
+    local ahead_count="$(__git_commit_diff_count $parent HEAD)"
+    local behind_count="$(__git_commit_diff_count HEAD $parent)"
 
     if [ 0 -lt "$ahead_count" ]; then
         str="${GREEN}+${ahead_count}${RESET}"
@@ -245,9 +245,9 @@ __git_timestr_relformat() {
     # add a hint of color
     if [ -n "$2" ]; then
         local color
-        if [ 30 -lt "$mins" ]; then
+        if [ 1800 -lt "$secs" ]; then # 30 mins
             color="$LIGHT_RED"
-        elif [ 10 -lt "$mins" ]; then
+        elif [ 600 -lt "$secs" ]; then # 10 mins
             color="$YELLOW"
         else
             color="$LIGHT_GREEN"
