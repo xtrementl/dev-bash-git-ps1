@@ -46,7 +46,7 @@ case "$TERM" in
         GREY="\[$ESC[0;37m\]"
         CYAN="\[$ESC[01;36m\]"
         YELLOW="\[$ESC[0;33m\]"
-        VIOLET="\[$ESC[0;35m\]"
+        LIGHT_VIOLET="\[$ESC[1;35m\]"
         RESET="\[$ESC[0m\]"
     ;;
     *)
@@ -58,7 +58,7 @@ case "$TERM" in
         GREY=""
         CYAN=""
         YELLOW=""
-        VIOLET=""
+        LIGHT_VIOLET=""
         RESET=""
     ;;
 esac
@@ -294,7 +294,7 @@ __git_prompt() {
 
                 # extras (count strings, working dir symbols)
                 local countstr="$(__git_count_str)"
-                local wd_syms="${VIOLET}$(__git_working_dir_symbols)${RESET}"
+                local wd_syms="${LIGHT_VIOLET}$(__git_working_dir_symbols)${RESET}"
 
                 # calc relative time diff of last commit
                 local secs="$(__git_secs_since)"
