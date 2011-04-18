@@ -104,6 +104,7 @@ __git_branching_state() {
 }
 
 # prints the working directory state of the repository using symbols
+# these could be expensive.. would make sense to have configs to turn off
 # * - modified / + - staged / ^ - stashed / % - untracked
 __git_working_dir_symbols() {
     local symbols
@@ -184,7 +185,7 @@ __git_in_gitdir() {
 # arg1: reference A
 # arg2: reference B
 __git_commit_diff_count() {
-    echo "$(git rev-list $1..$2 2> /dev/null | wc -l)"
+    echo "$(git rev-list $1..$2 2> /dev/null | awk 'END {print NR}')"
 }
 
 # build combined (+/-) counts for related commits
