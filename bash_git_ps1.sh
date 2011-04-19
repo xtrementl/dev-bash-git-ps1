@@ -210,8 +210,11 @@ __git_count_str() {
 
 # get the unix timestamp for the lastest commit (seconds)
 __git_secs_since() {
-    local now="$(date +%s)" || 0
-    local last_commit="$(git log --format='%at' -1 2> /dev/null)" || 0
+    local now="$(date +%s)"
+    local last_commit="$(git log --format='%at' -1 2> /dev/null)"
+    if [ -z "$last_commit" ]; then # probably initial git init, no commits
+        return
+    fi
     if [ 0 -lt "$now" ] && [ 0 -lt "$last_commit" ]; then
         echo "$((now - last_commit))"
     fi
@@ -300,8 +303,12 @@ __git_prompt() {
 
                 # calc relative time diff of last commit
                 local secs="$(__git_secs_since)"
-                local timestr=" [$(__git_timestr_relformat $secs true)]"
-                extras="${countstr}${wd_syms}${timestr}"
+                if [ -n "$secs" ]; then
+                    local timestr=" [$(__git_timestr_relformat $secs true)]"
+                    extras="${countstr}${wd_syms}${timestr}"
+                else 
+                    extras="${countstr}${wd_syms}"
+                fi
             ;;
         esac
         branch="${YELLOW}${branch}${RESET}"
