@@ -38,7 +38,7 @@
 
 # colors
 case "$TERM" in
-    xterm*|rxvt*)
+    xterm*|rxvt*|screen*)
         ESC="\033"
         RED="\[$ESC[01;31m\]"
         LIGHT_RED="\[$ESC[1;31m\]"
