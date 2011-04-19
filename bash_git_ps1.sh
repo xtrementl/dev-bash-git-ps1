@@ -134,9 +134,9 @@ __git_branch_name() {
     # current branch name
     local branch
     local gitdir="$2" || "$(__git_dirname)"
-    branch="$(git symbolic-ref HEAD 2> /dev/null)" || {
-        branch="$(git describe --contains --all HEAD 2> /dev/null)" ||
-            branch="$(cut -c1-7 "$gitdir/HEAD" 2> /dev/null)..." ||
+    branch="$(git symbolic-ref HEAD 2>/dev/null)" || {
+        branch="$(git describe --contains --all HEAD 2>/dev/null)" ||
+            branch="$(cut -c1-7 "$gitdir/HEAD" 2>/dev/null)..." ||
                 branch="unknown"
 
         branch="${branch##remotes/}"
@@ -185,7 +185,7 @@ __git_in_gitdir() {
 # arg1: reference A
 # arg2: reference B
 __git_commit_diff_count() {
-    echo "$(git rev-list $1..$2 2> /dev/null | awk 'END {print NR}')"
+    echo "$(git rev-list $1..$2 2>/dev/null | awk 'END {print NR}')"
 }
 
 # build combined (+/-) counts for related commits
@@ -211,7 +211,7 @@ __git_count_str() {
 # get the unix timestamp for the lastest commit (seconds)
 __git_secs_since() {
     local now="$(date +%s)"
-    local last_commit="$(git log --format='%at' -1 2> /dev/null)"
+    local last_commit="$(git log --format='%at' -1 2>/dev/null)"
     if [ -z "$last_commit" ]; then # probably initial git init, no commits
         return
     fi
